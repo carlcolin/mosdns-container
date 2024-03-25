@@ -1,164 +1,269 @@
-# v5.0.0 分流示例。
-# 这个配置是为了展示各种分流规则！不是为了直接复制粘贴使用！！！！
-# 有疑问先看注释，再翻 wiki。
-
-# 日志
 log:
-  level: info
-  file: ""
-  production: false
+  level: debug
+  file: "/etc/mosdns/mosdns.log"
 
-# api:
-#   http: 127.0.0.1:8888
+api:
+  http: "0.0.0.0:9091"
 
-# include: []
+include: []
 
 plugins:
-  # forward 可以将所有的 upstream 写一起，sequence 里按需调用 "$插件tag 上游tag..."。看下一条注释。
-  - tag: cache
-    type: cache
+  - tag: geosite_cn
+    type: domain_set
     args:
-      size: 1024
-      lazy_cache_ttl: 0
+      files:
+        - "/etc/mosdns/geosite_cn.txt"
 
- # 自定义Hosts
+  - tag: geoip_cn
+    type: ip_set
+    args:
+      files:
+        - "/etc/mosdns/geoip_cn.txt"
+
+  - tag: geosite_no_cn
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/geosite_geolocation-!cn.txt"
+
+  - tag: whitelist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/whitelist.txt"
+
+  - tag: blocklist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/blocklist.txt"
+
+  - tag: greylist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/greylist.txt"
+
+  - tag: ddnslist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/ddnslist.txt"
+
   - tag: hosts
     type: hosts
     args:
       files:
-        - "./hosts"
+        - "/etc/mosdns/rule/hosts.txt"
 
-  - tag: upstreams
+  - tag: redirect
+    type: redirect
+    args:
+      files:
+        - "/etc/mosdns/rule/redirect.txt"
+
+  - tag: adlist
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/adlist.txt"
+
+  - tag: local_ptr
+    type: domain_set
+    args:
+      files:
+        - "/etc/mosdns/rule/local-ptr.txt"
+
+  - tag: lazy_cache
+    type: cache
+    args:
+      size: 800000
+      lazy_cache_ttl: 86400
+
+  - tag: forward_local
     type: forward
     args:
+      concurrent: 1
       upstreams:
-        - tag: cloudflare_tls
-          addr: tls://1.0.0.1
-          enable_pipeline: true
-          idle_timeout: 50
-          insecure_skip_verify: true
-        - tag: google_tls
-          addr: tls://8.8.8.8
-          enable_pipeline: true
-          idle_timeout: 50
-          insecure_skip_verify: true
-        - tag: dnspod
-          addr: tls://1.12.12.12
-          enable_pipeline: true
-          idle_timeout: 30
-          insecure_skip_verify: true
-        - tag: aliyun
-          addr: tls://dns.alidns.com
+        - addr: "https://doh.pub/dns-query"
           bootstrap: 223.5.5.5
-          enable_pipeline: true
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
           idle_timeout: 30
-          insecure_skip_verify: true
+          enable_http3: false
+        - addr: "https://dns.alidns.com/dns-query"
+          bootstrap: 223.5.5.5
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
+          idle_timeout: 30
+          enable_http3: false
 
-  # 本地域名的规则
-  - tag: local_seq
+  - tag: forward_remote
+    type: forward
+    args:
+      concurrent: 1
+      upstreams:
+        - addr: "tls://8.8.8.8"
+          bootstrap: 223.5.5.5
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
+          idle_timeout: 30
+          enable_http3: false
+        - addr: "tls://1.1.1.1"
+          bootstrap: 223.5.5.5
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
+          idle_timeout: 30
+          enable_http3: false
+        - addr: "tls://1.0.0.1"
+          bootstrap: 223.5.5.5
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
+          idle_timeout: 30
+          enable_http3: false
+        - addr: "tls://9.9.9.9"
+          bootstrap: 223.5.5.5
+          enable_pipeline: false
+          max_conns: 2
+          insecure_skip_verify: false
+          idle_timeout: 30
+          enable_http3: false
+
+  - tag: modify_ttl
     type: sequence
     args:
-      - exec: $upstreams dnspod aliyun # 只请求 tag 是 dnspod 的上游。不指定 tag 默认请求 $upstreams 中的全部上游。
+      - exec: ttl 0-0
 
-  # 替换 cloudflare 的 IP 成自己的最优 IP 的规则
-  # 没找到txt，不用这条
-  # - tag: fastest_cf
-  #   type: sequence
-  #   args:
-  #     - matches: resp_ip &./geoip_cloudflare.txt # 是不是 cloudflare 的 IP
-  #       exec: black_hole 1.1.1.1 ::1    # 用 black_hole 强制换成这些 IP 的应答。注意，这里的 IP 只是示例不是 cloudflare 的。
-
-  # 远程域名的规则
-  - tag: remote_seq
+  - tag: modify_ddns_ttl
     type: sequence
     args:
-      - exec: prefer_ipv4       # 希望 remote 优先 ipv4.
-      - exec: $upstreams cloudflare_tls google_tls
-      # - exec: jump fastest_cf # jump 相对于把 fastest_cf 的规则链插到此处。
+      - exec: ttl 5-5
 
-  # 这个 sequence 转发请求到本地，返回只包含 cn IP 的应答。(过滤掉非 cn 的应答)
-  - tag: local_must_has_cn
+  - tag: local_sequence
     type: sequence
     args:
-      - exec: $upstreams dnspod aliyun
-      - matches: "!resp_ip &./geoip_cn.txt"
-        exec: drop_resp     # 如果应答里没有 cn IP，丢掉。
+      - exec: $forward_local
 
-  # 利用 fallback 机制按 IP 分流。如果 local 服务器返回了 cn 的应答就接受，非 cn 的应答会被丢弃，使用 remote 服务器的应答。
-  - tag: fallback_ip
+  - tag: remote_sequence
+    type: sequence
+    args:
+      - exec: prefer_ipv4
+      - exec: $forward_remote
+
+  - tag: has_resp_sequence
+    type: sequence
+    args:
+      - matches: qname $ddnslist
+        exec: $modify_ddns_ttl
+      - matches: "!qname $ddnslist"
+        exec: $modify_ttl
+      - matches: has_resp
+        exec: accept
+
+  - tag: query_is_local_ip
+    type: sequence
+    args:
+      - exec: $local_sequence
+      - matches: "!resp_ip $geoip_cn"
+        exec: drop_resp
+
+  - tag: query_is_remote
+    type: sequence
+    args:
+      - exec: $remote_sequence
+
+  - tag: fallback
     type: fallback
     args:
-      primary: local_must_has_cn  # 空应答(本地服务器返回了非cn IP然后应答被丢弃了)触发 fallback。
-      secondary: remote_seq       # fallback 后就会使用 remote 的应答。
+      primary: query_is_remote
+      secondary: query_is_remote
+      threshold: 500
       always_standby: true
 
+  - tag: query_is_ddns_domain
+    type: sequence
+    args:
+      - matches: qname $ddnslist
+        exec: $local_sequence
 
-  ##############################
-  # 配置主 sequence 规则，作为服务器的入口。
-  - tag: main
+  - tag: query_is_local_domain
+    type: sequence
+    args:
+      - matches: qname $geosite_cn
+        exec: $local_sequence
+
+  - tag: query_is_no_local_domain
+    type: sequence
+    args:
+      - matches: qname $geosite_no_cn
+        exec: $remote_sequence
+
+  - tag: query_is_whitelist_domain
+    type: sequence
+    args:
+      - matches: qname $whitelist
+        exec: $local_sequence
+
+  - tag: query_is_greylist_domain
+    type: sequence
+    args:
+      - matches: qname $greylist
+        exec: $remote_sequence
+
+  - tag: query_is_reject_domain
+    type: sequence
+    args:
+      - matches: qname $blocklist
+        exec: reject 3
+      - matches: qname $adlist
+        exec: reject 3
+      - matches:
+        - qtype 12
+        - qname $local_ptr
+        exec: reject 3
+      - matches: qtype 65
+        exec: reject 3
+
+  - tag: main_sequence
     type: sequence
     args:
       - exec: $hosts
-      - exec: query_summary entry
+      - exec: jump has_resp_sequence
       - matches:
-          - qname &./geosite_category-ads-all.txt
-        exec: reject 0
-      - exec: $cache
-      - {matches: has_resp, exec: accept}   # cache/hosts 等插件不再“命中记录自动跳过后续插件”，需用户自行判断是否有应答。
-        # 方便需要 ipset/nftables 用户定制流程。
-      # yaml 支持这种简写。
-      - matches:
-          - qname &./geosite_cn.txt # cn 域名
-        exec: goto local_seq          # goto 到 local 规则，不在执行后续规则。
-      - matches:
-          - qname &./geosite_geolocation-!cn.txt # 非 cn 域名
-        exec: goto remote_seq          # goto 到 remote 规则。
+        - "!qname $ddnslist"
+        - "!qname $blocklist"
+        - "!qname $adlist"
+        - "!qname $local_ptr"
+        exec: $lazy_cache
+      - exec: $redirect
+      - exec: jump has_resp_sequence
+      - exec: $query_is_ddns_domain
+      - exec: jump has_resp_sequence
+      - exec: $query_is_whitelist_domain
+      - exec: jump has_resp_sequence
+      - exec: $query_is_reject_domain
+      - exec: jump has_resp_sequence
+      - exec: $query_is_greylist_domain
+      - exec: jump has_resp_sequence
+      - exec: $query_is_local_domain
+      - exec: jump has_resp_sequence
+      - exec: $query_is_no_local_domain
+      - exec: jump has_resp_sequence
+      - exec: $fallback
 
-      - exec: $fallback_ip            # 剩余域名用 ip 分流。
-
-  ####  动态路由 + cache。
-  # 新版的cache只会将命中的应答放在请求，不再自动终止后续规则。所以需要动态路由时，可以将
-  # sequence 的转发操作用 !has_resp 短路。做到每次请求都能刷新路由表。
-#  - tag: s1
-#    type: sequence
-#    args:
-#      - exec: $cache
-#      - matches:
-#          - "!has_resp" # 上一步cache命中缓存有应答了就不转发了。
-#        exec: $forward_remote
-#      - exec: ipset ...... # ipset 每次请求都能执行。
-  #####
-
-
-  ####### mark 使用示例
-  # mark 在 exec 内是打标。在 matches 内是匹配。
-  # mark 当作开关的示例。
-#  - tag: s1
-#    type: sequence
-#    args:
-#      - exec: mark 1 2  # 先打标。
-#      - matches:
-#          - mark 1
-#        exec: $cache  # 有 mark 1 缓存会生效
-#      - matches:
-#          - mark 2
-#        exec: ecs 1.2.3.4 # 有 mark 2 请求会被附加 ecs
-      # ...
-      # - matches:
-      #     - mark 3
-      #   exec:  jump fastest_cf # 没 mark 3 不会替换 cloudflare ip。
-
-
-  #### 最后配置 server........略
-  - tag: server
-    type: udp_server # 目前有 udp/tcp/http_server
+  - tag: udp_server
+    type: udp_server
     args:
-      entry: main
-      listen: 0.0.0.0:53
-  - tag: server_tcp
+      entry: main_sequence
+      listen: ":53"
+
+  - tag: tcp_server
     type: tcp_server
     args:
-      entry: main
-      listen: 0.0.0.0:53
-
-#######
+      entry: main_sequence
+      listen: ":53"

@@ -22,6 +22,7 @@ RUN apk add --no-cache ca-certificates \
 ADD entrypoint.sh /entrypoint.sh
 ADD config.yaml /config.yaml
 ADD hosts /hosts
+ADD rule /rule
 # ADD https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geoip.dat /geoip.dat
 # ADD https://github.com/Loyalsoldier/v2ray-rules-dat/raw/release/geosite.dat /geosite.dat
 ADD https://raw.githubusercontent.com/IceCodeNew/4Share/master/geoip_china/china_ip_list.txt /geoip_cn.txt

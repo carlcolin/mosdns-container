@@ -6,6 +6,9 @@ fi
 if [ ! -f /etc/mosdns/hosts ]; then
 	cp -u /hosts /etc/mosdns/hosts
 fi
+if [ ! -d /etc/mosdns/rule ]; then
+    cp -u -r /rule /etc/mosdns/
+fi
 # cp -u /geosite.dat /etc/mosdns/geosite.dat
 # cp -u /geoip.dat /etc/mosdns/geoip.dat
 cp -u /geoip_cn.txt /etc/mosdns/geoip_cn.txt
