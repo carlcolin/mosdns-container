@@ -30,7 +30,7 @@ jobs:
       run: |
         cd $GITHUB_WORKSPACE
         chmod +x UpdateTag.sh
-        git clone https://github.com/Sagit-chu/mosdns-container.git mosdns-container
+        git clone https://github.com/carlcolin/mosdns-container.git mosdns-container
         cd mosdns-container
         $GITHUB_WORKSPACE/UpdateTag.sh
     
