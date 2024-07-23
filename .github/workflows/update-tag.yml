@@ -41,7 +41,7 @@ jobs:
         cd $GITHUB_WORKSPACE/mosdns-container
         git add .
         git commit -m "update tag $(TZ='Asia/Shanghai' date +%m-%d" "%H:%M)"
-        git push --quiet "https://${{ secrets.ACCESS_TOKEN }}@github.com/Sagit-chu/mosdns-container.git" HEAD:main
+        git push --quiet "https://${{ secrets.ACCESS_TOKEN }}@github.com/carlcolin/mosdns-container.git" HEAD:main
 
     - name: Trigger build
       if: steps.Upload.outputs.cache-hit != 'true'
