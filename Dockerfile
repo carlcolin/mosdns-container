@@ -37,17 +37,6 @@ ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/gfw.t
 ADD https://raw.githubusercontent.com/Loyalsoldier/v2ray-rules-dat/release/direct-list.txt /geosite_cn.txt
 ADD https://raw.githubusercontent.com/Hackl0us/GeoIP2-CN/release/CN-ip-cidr.txt /geoip_cn.txt
 
-ADD mos_rule_update.sh /usr/local/bin/mos_rule_update.sh
-RUN chmod +x /usr/local/bin/mos_rule_update.sh
-
-# 添加 crontab 文件到 /etc/cron.d/
-RUN echo "0 2 * * * /usr/local/bin/mos_rule_update.sh >> /var/log/cron.log 2>&1" > /etc/cron.d/mos_rule_update \
-    && chmod 0644 /etc/cron.d/mos_rule_update \
-    && crontab /etc/cron.d/mos_rule_update
-
-# 创建日志文件以便 cron 能够写入日志
-RUN touch /var/log/cron.log
-
 VOLUME /etc/mosdns
 EXPOSE 53/udp 53/tcp
 RUN chmod +x /entrypoint.sh
