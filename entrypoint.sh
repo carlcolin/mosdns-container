@@ -21,5 +21,5 @@ cp -u /geosite_geolocation_noncn.txt /etc/mosdns/geosite_geolocation_noncn.txt
 cp -u /gfw.txt /etc/mosdns/gfw.txt
 cp -u /geosite_cn.txt /etc/mosdns/geosite_cn.txt
 cp -u /geoip_cn.txt /etc/mosdns/geoip_cn.txt
-cron
+crond
 /usr/bin/mosdns start --dir /etc/mosdns
