@@ -18,7 +18,8 @@ LABEL maintainer="Sgit <github.com/Sagit-chu>"
 COPY --from=builder /root/mosdns/mosdns /usr/bin/
 
 RUN apk add --no-cache ca-certificates \
-	&& mkdir /etc/mosdns
+	&& mkdir /etc/mosdns \
+	&& apk add --no-cache bash busybox-suid
 ADD entrypoint.sh /entrypoint.sh
 ADD config.yaml /config.yaml
 ADD hosts /hosts
